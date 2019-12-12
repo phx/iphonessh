@@ -47,10 +47,9 @@ class SafeStreamSocket:
 		msg = ''
 		while len(msg) < size:
 			chunk = self.sock.recv(size-len(msg))
-			chunk = bytes(chunk).decode('utf-8')
 			if chunk == '':
 				raise MuxError("socket connection broken")
-			msg = msg + chunk
+			msg = msg + str(chunk)
 		return msg
 
 class MuxDevice(object):
