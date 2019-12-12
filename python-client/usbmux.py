@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #	usbmux.py - usbmux client library for Python
@@ -47,6 +47,7 @@ class SafeStreamSocket:
 		msg = ''
 		while len(msg) < size:
 			chunk = self.sock.recv(size-len(msg))
+			chunk = bytes(chunk).decode('utf-8')
 			if chunk == '':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
@@ -74,7 +75,8 @@ class BinaryProtocol(object):
 
 	def _pack(self, req, payload):
 		if req == self.TYPE_CONNECT:
-			return struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + "\x00\x00"
+			strbytes = bytes('IH', 'utf-8')
+			return struct.pack(strbytes, payload['DeviceID'], payload['PortNumber']) + "\x00\x00"
 		elif req == self.TYPE_LISTEN:
 			return ""
 		else:
@@ -94,19 +96,24 @@ class BinaryProtocol(object):
 			raise MuxError("Invalid incoming request type %d"%req)
 
 	def sendpacket(self, req, tag, payload={}):
-		payload = self._pack(req, payload)
+		payload = bytes(self._pack(req, payload), 'utf-8')
 		if self.connected:
 			raise MuxError("Mux is connected, cannot issue control packets")
 		length = 16 + len(payload)
-		data = struct.pack("IIII", length, self.VERSION, req, tag) + payload
+		strbytes = bytes('IIII', 'utf-8')
+		data = struct.pack(strbytes, length, self.VERSION, req, tag) + payload
 		self.socket.send(data)
 	def getpacket(self):
 		if self.connected:
 			raise MuxError("Mux is connected, cannot issue control packets")
 		dlen = self.socket.recv(4)
-		dlen = struct.unpack("I", dlen)[0]
+		dlen = bytes(dlen, 'utf-8')
+		strbytes = bytes('I', 'utf-8')
+		dlen = struct.unpack(strbytes, dlen)[0]
 		body = self.socket.recv(dlen - 4)
-		version, resp, tag = struct.unpack("III",body[:0xc])
+		body = bytes(body, 'utf-8')
+		strbytes = bytes('III', 'utf-8')
+		version, resp, tag = struct.unpack(strbytes, body[:0xc])
 		if version != self.VERSION:
 			raise MuxVersionError("Version mismatch: expected %d, got %d"%(self.VERSION,version))
 		payload = self._unpack(resp, body[0xc:])
@@ -236,11 +243,11 @@ class USBMux(object):
 
 if __name__ == "__main__":
 	mux = USBMux()
-	print "Waiting for devices..."
+	print("Waiting for devices...")
 	if not mux.devices:
 		mux.process(0.1)
 	while True:
-		print "Devices:"
+		print("Devices:")
 		for dev in mux.devices:
-			print dev
+			print(dev)
 		mux.process()
