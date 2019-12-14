@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 #
 #	usbmux.py - usbmux client library for Python
@@ -19,11 +19,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import socket, struct, select, sys
-from inspect import currentframe
-
-def getline():
-	cf = currentframe()
-	print('line:', cf.f_back.f_lineno)
 
 try:
 	import plistlib
@@ -43,31 +38,18 @@ class SafeStreamSocket:
 		self.sock.connect(address)
 	def send(self, msg):
 		totalsent = 0
-		getline()
-		print('msg', msg, type(msg))
 		while totalsent < len(msg):
 			sent = self.sock.send(msg[totalsent:])
 			if sent == 0:
 				raise MuxError("socket connection broken")
 			totalsent = totalsent + sent
 	def recv(self, size):
-		try:
-			msg
-		except:
-			msg = b''
-		getline()
-		print('msg', msg, type(msg))
-		print('size', size, type(size))
-		print('lenmsg', len(msg))
+		msg = ''
 		while len(msg) < size:
 			chunk = self.sock.recv(size-len(msg))
-			getline()
-			print('chunk', chunk, type(chunk))
 			if chunk == '':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
-			getline()
-			print('msg', msg, type(msg))
 		return msg
 
 class MuxDevice(object):
@@ -92,7 +74,7 @@ class BinaryProtocol(object):
 
 	def _pack(self, req, payload):
 		if req == self.TYPE_CONNECT:
-			return struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + b"\x00\x00"
+			return struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + "\x00\x00"
 		elif req == self.TYPE_LISTEN:
 			return ""
 		else:
@@ -103,46 +85,20 @@ class BinaryProtocol(object):
 			return {'Number':struct.unpack("I", payload)[0]}
 		elif resp == self.TYPE_DEVICE_ADD:
 			devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
-			getline()
-			print('devid', devid, type(devid))
-			print('usbpid', usbpid, type(usbpid))
-			print('serial', serial, type(serial))
-			print('pad', pad, type(pad))
-			print('location', location, type(location))
-			# serial = serial.split("\0")[0]
-			serial = str(serial).split('\\x0')[0]
-			getline()
-			print('serial', serial, type(serial))
+			serial = serial.split("\0")[0]
 			return {'DeviceID': devid, 'Properties': {'LocationID': location, 'SerialNumber': serial, 'ProductID': usbpid}}
 		elif resp == self.TYPE_DEVICE_REMOVE:
 			devid = struct.unpack("I", payload)[0]
-			getline()
-			print('devid', devid, type(devid))
 			return {'DeviceID': devid}
 		else:
 			raise MuxError("Invalid incoming request type %d"%req)
 
 	def sendpacket(self, req, tag, payload={}):
-		print('req', req, type(req))
-		print('tag', tag, type(tag))
 		payload = self._pack(req, payload)
-		getline()
-		print('payload', payload, type(payload))
 		if self.connected:
 			raise MuxError("Mux is connected, cannot issue control packets")
 		length = 16 + len(payload)
-		getline()
-		print('length', length, type(length))
-		print('self.VERSION', self.VERSION, type(self.VERSION))
-		print('req', req, type(req))
-		print('tag', tag, type(tag))
-		print('payload', payload, type(payload))
-		if not isinstance(payload, bytes):
-			payload = bytes(payload, 'utf-8')
-		getline()
-		print('payload', payload, type(payload))
-		data = struct.pack("IIIIs", length, self.VERSION, req, tag, payload)
-		print('data', data, type(data))
+		data = struct.pack("IIII", length, self.VERSION, req, tag) + payload
 		self.socket.send(data)
 	def getpacket(self):
 		if self.connected:
@@ -280,11 +236,11 @@ class USBMux(object):
 
 if __name__ == "__main__":
 	mux = USBMux()
-	print("Waiting for devices...")
+	print "Waiting for devices..."
 	if not mux.devices:
 		mux.process(0.1)
 	while True:
-		print("Devices:")
+		print "Devices:"
 		for dev in mux.devices:
-			print(dev)
+			print dev
 		mux.process()
