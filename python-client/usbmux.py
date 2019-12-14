@@ -51,19 +51,17 @@ class SafeStreamSocket:
 				raise MuxError("socket connection broken")
 			totalsent = totalsent + sent
 	def recv(self, size):
-		try:
-			msg
-		except:
-			msg = b''
+		msg = b''
 		getline()
 		print('msg', msg, type(msg))
 		print('size', size, type(size))
 		print('lenmsg', len(msg))
-		while len(msg) < size:
+		print('sizeofmsg', sys.getsizeof(msg), type(msg))
+		while sys.getsizeof(msg) < size:
 			chunk = self.sock.recv(size-len(msg))
 			getline()
 			print('chunk', chunk, type(chunk))
-			if chunk == '':
+			if chunk == b'':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
 			getline()
@@ -148,9 +146,17 @@ class BinaryProtocol(object):
 		if self.connected:
 			raise MuxError("Mux is connected, cannot issue control packets")
 		dlen = self.socket.recv(4)
-		dlen = struct.unpack("I", dlen)[0]
+		print('dlen1', dlen, type(dlen))
+		print('sizeofdlen', sys.getsizeof(dlen))
+		# dlen = struct.unpack("I", dlen)[0]
+		dlen = struct.unpack("I", dlen)
+		print('dlen2', dlen, type(dlen))
 		body = self.socket.recv(dlen - 4)
+		print('body', body, type(body))
 		version, resp, tag = struct.unpack("III",body[:0xc])
+		print('version', version, type(version))
+		print('resp', resp, type(resp))
+		print('tag', tag, type(tag))
 		if version != self.VERSION:
 			raise MuxVersionError("Version mismatch: expected %d, got %d"%(self.VERSION,version))
 		payload = self._unpack(resp, body[0xc:])
