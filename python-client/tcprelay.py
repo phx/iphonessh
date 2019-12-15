@@ -29,8 +29,8 @@ class SocketRelay(object):
 	def __init__(self, a, b, maxbuf=65535):
 		self.a = a
 		self.b = b
-		self.atob = ""
-		self.btoa = ""
+		self.atob = b""
+		self.btoa = b""
 		self.maxbuf = maxbuf
 	def handle(self):
 		while True:
