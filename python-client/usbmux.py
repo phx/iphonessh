@@ -51,7 +51,7 @@ class SafeStreamSocket:
 				raise MuxError("socket connection broken")
 			totalsent = totalsent + sent
 	def recv(self, size):
-		msg = b''
+		msg = b'\x00'
 		getline()
 		print('msg', msg, type(msg))
 		print('size', size, type(size))
@@ -61,7 +61,7 @@ class SafeStreamSocket:
 			chunk = self.sock.recv(size-len(msg))
 			getline()
 			print('chunk', chunk, type(chunk))
-			if chunk == b'':
+			if chunk == b'\x00':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
 			getline()
@@ -90,7 +90,7 @@ class BinaryProtocol(object):
 
 	def _pack(self, req, payload):
 		if req == self.TYPE_CONNECT:
-			return struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + b"\x00\x00"
+			return list(map(ord, struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + b"\x00\x00"))
 		elif req == self.TYPE_LISTEN:
 			return ""
 		else:
@@ -98,9 +98,11 @@ class BinaryProtocol(object):
 	
 	def _unpack(self, resp, payload):
 		if resp == self.TYPE_RESULT:
-			return {'Number':struct.unpack("I", payload)[0]}
+			# return {'Number':struct.unpack("I", payload)[0]}
+			return {'Number': payload[0]}
 		elif resp == self.TYPE_DEVICE_ADD:
-			devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
+			# devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
+			devid, usbpid, serial, pad, location = payload
 			getline()
 			print('devid', devid, type(devid))
 			print('usbpid', usbpid, type(usbpid))
@@ -113,7 +115,8 @@ class BinaryProtocol(object):
 			print('serial', serial, type(serial))
 			return {'DeviceID': devid, 'Properties': {'LocationID': location, 'SerialNumber': serial, 'ProductID': usbpid}}
 		elif resp == self.TYPE_DEVICE_REMOVE:
-			devid = struct.unpack("I", payload)[0]
+			# devid = struct.unpack("I", payload)[0]
+			devid = payload
 			getline()
 			print('devid', devid, type(devid))
 			return {'DeviceID': devid}
@@ -123,6 +126,7 @@ class BinaryProtocol(object):
 	def sendpacket(self, req, tag, payload={}):
 		print('req', req, type(req))
 		print('tag', tag, type(tag))
+		print('payload', payload, type(payload))
 		payload = self._pack(req, payload)
 		getline()
 		print('payload', payload, type(payload))
@@ -139,7 +143,8 @@ class BinaryProtocol(object):
 			payload = bytes(payload, 'utf-8')
 		getline()
 		print('payload', payload, type(payload))
-		data = struct.pack("IIIIs", length, self.VERSION, req, tag, payload)
+		data = struct.pack('IIII', length, self.VERSION, req, tag) + payload
+		# data = list(map(ord, str(length) + str(self.VERSION) + str(req) + str(tag) + str(payload)))
 		print('data', data, type(data))
 		self.socket.send(data)
 	def getpacket(self):
@@ -148,18 +153,26 @@ class BinaryProtocol(object):
 		dlen = self.socket.recv(4)
 		print('dlen1', dlen, type(dlen))
 		print('sizeofdlen', sys.getsizeof(dlen))
-		# dlen = struct.unpack("I", dlen)[0]
-		dlen = struct.unpack("I", dlen)
+		# dlen = struct.unpack("I", dlen)
 		print('dlen2', dlen, type(dlen))
-		body = self.socket.recv(dlen - 4)
+		# body = self.socket.recv(dlen - 4)
+		body = dlen
 		print('body', body, type(body))
-		version, resp, tag = struct.unpack("III",body[:0xc])
-		print('version', version, type(version))
-		print('resp', resp, type(resp))
-		print('tag', tag, type(tag))
-		if version != self.VERSION:
-			raise MuxVersionError("Version mismatch: expected %d, got %d"%(self.VERSION,version))
-		payload = self._unpack(resp, body[0xc:])
+		# version, resp, tag = struct.unpack("III",body[:0xc])
+		try:
+			version = body[0]
+			resp = body[1]
+			tag = body[2]
+			print('version', version, type(version))
+			print('resp', resp, type(resp))
+			print('tag', tag, type(tag))
+			if version != self.VERSION:
+				raise MuxVersionError("Version mismatch: expected %d, got %d" % (self.VERSION, version))
+		except:
+			resp = b''
+			tag = b''
+		# payload = self._unpack(resp, body[0xc:])
+		payload = resp + body
 		return (resp, tag, payload)
 
 class PlistProtocol(BinaryProtocol):
@@ -212,10 +225,11 @@ class MuxConnection(object):
 	def _getreply(self):
 		while True:
 			resp, tag, data = self.proto.getpacket()
-			if resp == self.proto.TYPE_RESULT:
-				return tag, data
-			else:
-				raise MuxError("Invalid packet type received: %d"%resp)
+			# if resp == self.proto.TYPE_RESULT:
+			return tag, data
+			#else:
+			# raise MuxError("Invalid packet type received: %ds" %resp)
+			#	raise MuxError("Invalid packet type received:" + str(resp))
 	def _processpacket(self):
 		resp, tag, data = self.proto.getpacket()
 		if resp == self.proto.TYPE_DEVICE_ADD:
@@ -234,7 +248,8 @@ class MuxConnection(object):
 		self.proto.sendpacket(req, mytag, payload)
 		recvtag, data = self._getreply()
 		if recvtag != mytag:
-			raise MuxError("Reply tag mismatch: expected %d, got %d"%(mytag, recvtag))
+			# raise MuxError("Reply tag mismatch: expected %d, got %d"%(mytag, recvtag))
+			raise MuxError('Replay tag mismatch: expected', str(mytag), 'received', str(recvtag))
 		return data['Number']
 
 	def listen(self):
