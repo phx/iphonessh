@@ -3,7 +3,8 @@
 #
 #	usbmux.py - usbmux client library for Python
 #
-# Copyright (C) 2009	Hector Martin "marcan" <hector@marcansoft.com>
+# Original work Copyright (C) 2009	Hector Martin "marcan" <hector@marcansoft.com>
+# Modified work Copyright (C) 2019  phx <https://github.com/phx>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
