@@ -25,17 +25,21 @@ def getline():
 	cf = currentframe()
 	print('line:', cf.f_back.f_lineno)
 
+
 try:
 	import plistlib
 	haveplist = True
 except:
 	haveplist = False
 
+
 class MuxError(Exception):
 	pass
 
+
 class MuxVersionError(MuxError):
 	pass
+
 
 class SafeStreamSocket:
 	def __init__(self, address, family):
@@ -46,22 +50,22 @@ class SafeStreamSocket:
 		getline()
 		print('msg', msg, type(msg))
 		while totalsent < len(msg):
-			sent = self.sock.send(msg[totalsent:])
+			sent = self.sock.send(bytes(msg)[totalsent:])
 			if sent == 0:
 				raise MuxError("socket connection broken")
 			totalsent = totalsent + sent
 	def recv(self, size):
-		msg = b'\x00'
+		msg = ''
 		getline()
 		print('msg', msg, type(msg))
 		print('size', size, type(size))
 		print('lenmsg', len(msg))
 		print('sizeofmsg', sys.getsizeof(msg), type(msg))
-		while sys.getsizeof(msg) < size:
+		while len(msg) < size:
 			chunk = self.sock.recv(size-len(msg))
 			getline()
 			print('chunk', chunk, type(chunk))
-			if chunk == b'\x00':
+			if chunk == '':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
 			getline()
@@ -90,7 +94,7 @@ class BinaryProtocol(object):
 
 	def _pack(self, req, payload):
 		if req == self.TYPE_CONNECT:
-			return list(map(ord, struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + b"\x00\x00"))
+			return struct.pack("IH", payload['DeviceID'], payload['PortNumber']) + b"\x00\x00"
 		elif req == self.TYPE_LISTEN:
 			return ""
 		else:
@@ -98,25 +102,21 @@ class BinaryProtocol(object):
 	
 	def _unpack(self, resp, payload):
 		if resp == self.TYPE_RESULT:
-			# return {'Number':struct.unpack("I", payload)[0]}
-			return {'Number': payload[0]}
+			return {'Number':struct.unpack("I", payload)[0]}
 		elif resp == self.TYPE_DEVICE_ADD:
-			# devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
-			devid, usbpid, serial, pad, location = payload
+			devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
 			getline()
 			print('devid', devid, type(devid))
 			print('usbpid', usbpid, type(usbpid))
 			print('serial', serial, type(serial))
 			print('pad', pad, type(pad))
 			print('location', location, type(location))
-			# serial = serial.split("\0")[0]
-			serial = str(serial).split('\\x0')[0]
+			serial = serial.split("\0")[0]
 			getline()
 			print('serial', serial, type(serial))
 			return {'DeviceID': devid, 'Properties': {'LocationID': location, 'SerialNumber': serial, 'ProductID': usbpid}}
 		elif resp == self.TYPE_DEVICE_REMOVE:
-			# devid = struct.unpack("I", payload)[0]
-			devid = payload
+			devid = struct.unpack("I", payload)[0]
 			getline()
 			print('devid', devid, type(devid))
 			return {'DeviceID': devid}
@@ -139,12 +139,9 @@ class BinaryProtocol(object):
 		print('req', req, type(req))
 		print('tag', tag, type(tag))
 		print('payload', payload, type(payload))
-		if not isinstance(payload, bytes):
-			payload = bytes(payload, 'utf-8')
 		getline()
 		print('payload', payload, type(payload))
-		data = struct.pack('IIII', length, self.VERSION, req, tag) + payload
-		# data = list(map(ord, str(length) + str(self.VERSION) + str(req) + str(tag) + str(payload)))
+		data = struct.pack('IIII', length, self.VERSION, req, tag) + bytes(payload, 'utf-8')
 		print('data', data, type(data))
 		self.socket.send(data)
 	def getpacket(self):
@@ -153,26 +150,17 @@ class BinaryProtocol(object):
 		dlen = self.socket.recv(4)
 		print('dlen1', dlen, type(dlen))
 		print('sizeofdlen', sys.getsizeof(dlen))
-		# dlen = struct.unpack("I", dlen)
+		dlen = struct.unpack("I", dlen)
 		print('dlen2', dlen, type(dlen))
-		# body = self.socket.recv(dlen - 4)
-		body = dlen
+		body = self.socket.recv(dlen - 4)
 		print('body', body, type(body))
-		# version, resp, tag = struct.unpack("III",body[:0xc])
-		try:
-			version = body[0]
-			resp = body[1]
-			tag = body[2]
-			print('version', version, type(version))
-			print('resp', resp, type(resp))
-			print('tag', tag, type(tag))
-			if version != self.VERSION:
-				raise MuxVersionError("Version mismatch: expected %d, got %d" % (self.VERSION, version))
-		except:
-			resp = b''
-			tag = b''
-		# payload = self._unpack(resp, body[0xc:])
-		payload = resp + body
+		version, resp, tag = struct.unpack("III",body[:0xc])
+		print('version', version, type(version))
+		print('resp', resp, type(resp))
+		print('tag', tag, type(tag))
+		if version != self.VERSION:
+			raise MuxVersionError("Version mismatch: expected %d, got %d" % (self.VERSION, version))
+		payload = self._unpack(resp, body[0xc:])
 		return (resp, tag, payload)
 
 class PlistProtocol(BinaryProtocol):
@@ -225,11 +213,10 @@ class MuxConnection(object):
 	def _getreply(self):
 		while True:
 			resp, tag, data = self.proto.getpacket()
-			# if resp == self.proto.TYPE_RESULT:
-			return tag, data
-			#else:
-			# raise MuxError("Invalid packet type received: %ds" %resp)
-			#	raise MuxError("Invalid packet type received:" + str(resp))
+			if resp == self.proto.TYPE_RESULT:
+				return tag, data
+			else:
+				raise MuxError("Invalid packet type received: %ds" %resp)
 	def _processpacket(self):
 		resp, tag, data = self.proto.getpacket()
 		if resp == self.proto.TYPE_DEVICE_ADD:
