@@ -55,7 +55,7 @@ class SafeStreamSocket:
 				raise MuxError("socket connection broken")
 			totalsent = totalsent + sent
 	def recv(self, size):
-		msg = ''
+		msg = b''
 		getline()
 		print('msg', msg, type(msg))
 		print('size', size, type(size))
@@ -65,7 +65,7 @@ class SafeStreamSocket:
 			chunk = self.sock.recv(size-len(msg))
 			getline()
 			print('chunk', chunk, type(chunk))
-			if chunk == '':
+			if chunk == b'':
 				raise MuxError("socket connection broken")
 			msg = msg + chunk
 			getline()
@@ -111,7 +111,7 @@ class BinaryProtocol(object):
 			print('serial', serial, type(serial))
 			print('pad', pad, type(pad))
 			print('location', location, type(location))
-			serial = serial.split("\0")[0]
+			serial = serial.decode().split("\0")[0]
 			getline()
 			print('serial', serial, type(serial))
 			return {'DeviceID': devid, 'Properties': {'LocationID': location, 'SerialNumber': serial, 'ProductID': usbpid}}
@@ -126,10 +126,12 @@ class BinaryProtocol(object):
 	def sendpacket(self, req, tag, payload={}):
 		print('req', req, type(req))
 		print('tag', tag, type(tag))
-		print('payload', payload, type(payload))
+		print('payload', payload, type(payload), len(payload))
 		payload = self._pack(req, payload)
 		getline()
-		print('payload', payload, type(payload))
+		if not isinstance(payload, bytes):
+			payload = bytes(payload, 'utf-8')
+		print('payload', payload, type(payload), len(payload))
 		if self.connected:
 			raise MuxError("Mux is connected, cannot issue control packets")
 		length = 16 + len(payload)
@@ -138,10 +140,10 @@ class BinaryProtocol(object):
 		print('self.VERSION', self.VERSION, type(self.VERSION))
 		print('req', req, type(req))
 		print('tag', tag, type(tag))
-		print('payload', payload, type(payload))
+		print('payload', payload, type(payload), len(payload))
 		getline()
 		print('payload', payload, type(payload))
-		data = struct.pack('IIII', length, self.VERSION, req, tag) + bytes(payload, 'utf-8')
+		data = struct.pack('IIII', length, self.VERSION, req, tag) + payload
 		print('data', data, type(data))
 		self.socket.send(data)
 	def getpacket(self):
@@ -149,8 +151,7 @@ class BinaryProtocol(object):
 			raise MuxError("Mux is connected, cannot issue control packets")
 		dlen = self.socket.recv(4)
 		print('dlen1', dlen, type(dlen))
-		print('sizeofdlen', sys.getsizeof(dlen))
-		dlen = struct.unpack("I", dlen)
+		dlen = struct.unpack("I", dlen)[0]
 		print('dlen2', dlen, type(dlen))
 		body = self.socket.recv(dlen - 4)
 		print('body', body, type(body))
