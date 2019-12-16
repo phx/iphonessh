@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #	usbmux.py - usbmux client library for Python
@@ -20,6 +20,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import socket, struct, select, sys
+
+if sys.version_info > (3, 0):
+    python3 = True
+else:
+    python3 = False
 
 try:
     import plistlib
@@ -50,11 +55,18 @@ class SafeStreamSocket:
             totalsent = totalsent + sent
 
     def recv(self, size):
-        msg = b''
+        if python3:
+            msg = b''
+        else:
+            msg = ''
         while len(msg) < size:
             chunk = self.sock.recv(size - len(msg))
-            if chunk == b'':
-                raise MuxError("socket connection broken")
+            if python3:
+                if chunk == b'':
+                    raise MuxError("socket connection broken")
+            else:
+                if chunk == '':
+                    raise MuxError("socket connection broken")
             msg = msg + chunk
         return msg
 
@@ -96,7 +108,10 @@ class BinaryProtocol(object):
             return {'Number': struct.unpack("I", payload)[0]}
         elif resp == self.TYPE_DEVICE_ADD:
             devid, usbpid, serial, pad, location = struct.unpack("IH256sHI", payload)
-            serial = serial.decode().split("\0")[0]
+            if python3:
+                serial = serial.decode().split("\0")[0]
+            else:
+                serial = serial.split("\0")[0]
             return {'DeviceID': devid,
                     'Properties': {'LocationID': location, 'SerialNumber': serial, 'ProductID': usbpid}}
         elif resp == self.TYPE_DEVICE_REMOVE:
@@ -109,8 +124,9 @@ class BinaryProtocol(object):
         if payload is None:
             payload = {}
         payload = self._pack(req, payload)
-        if not isinstance(payload, bytes):
-            payload = bytes(payload, 'utf-8')
+        if python3:
+            if not isinstance(payload, bytes):
+                payload = bytes(payload, 'utf-8')
         if self.connected:
             raise MuxError("Mux is connected, cannot issue control packets")
         length = 16 + len(payload)
@@ -135,7 +151,7 @@ class PlistProtocol(BinaryProtocol):
     TYPE_CONNECT = "Connect"
     TYPE_LISTEN = "Listen"
     TYPE_DEVICE_ADD = "Attached"
-    TYPE_DEVICE_REMOVE = "Detached"  # ???
+    TYPE_DEVICE_REMOVE = "Detached"
     TYPE_PLIST = 8
     VERSION = 1
 
@@ -150,8 +166,10 @@ class PlistProtocol(BinaryProtocol):
     def _unpack(self, resp, payload):
         return payload
 
-    def sendpacket(self, req, tag, payload={}):
-        payload['ClientVersionString'] = 'usbmux.py by marcan'
+    def sendpacket(self, req, tag, payload=None):
+        if payload is None:
+            payload = {}
+        payload['ClientVersionString'] = 'usbmux.py by marcan - python2/3 compatibility by phx'
         if isinstance(req, int):
             req = [self.TYPE_CONNECT, self.TYPE_LISTEN][req - 2]
         payload['MessageType'] = req
@@ -203,7 +221,9 @@ class MuxConnection(object):
         else:
             raise MuxError("Invalid packet type received: %d" % resp)
 
-    def _exchange(self, req, payload={}):
+    def _exchange(self, req, payload=None):
+        if payload is None:
+            payload = {}
         mytag = self.pkttag
         self.pkttag += 1
         self.proto.sendpacket(req, mytag, payload)

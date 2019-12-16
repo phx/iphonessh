@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #	tcprelay.py - TCP connection relay for usbmuxd
@@ -19,19 +19,24 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-import usbmux
-import socketserver
-import select
+import usbmux, socketserver, select, sys
 from optparse import OptionParser
-import sys
 
+if sys.version_info > (3, 0):
+    python3 = True
+else:
+    python3 = False
 
 class SocketRelay(object):
     def __init__(self, a, b, maxbuf=65535):
         self.a = a
         self.b = b
-        self.atob = b''
-        self.btoa = b''
+        if python3:
+            self.atob = b''
+            self.btoa = b''
+        else:
+            self.atob = ''
+            self.btoa = ''
         self.maxbuf = maxbuf
 
     def handle(self):
