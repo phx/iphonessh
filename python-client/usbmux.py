@@ -130,7 +130,7 @@ class BinaryProtocol(object):
         if self.connected:
             raise MuxError("Mux is connected, cannot issue control packets")
         length = 16 + len(payload)
-        data = struct.pack('IIII', length, self.VERSION, req, tag) + payload
+        data = struct.pack('4I', length, self.VERSION, req, tag) + payload
         self.socket.send(data)
 
     def getpacket(self):
@@ -139,7 +139,7 @@ class BinaryProtocol(object):
         dlen = self.socket.recv(4)
         dlen = struct.unpack("I", dlen)[0]
         body = self.socket.recv(dlen - 4)
-        version, resp, tag = struct.unpack("III", body[:0xc])
+        version, resp, tag = struct.unpack("3I", body[:0xc])
         if version != self.VERSION:
             raise MuxVersionError("Version mismatch: expected %d, got %d" % (self.VERSION, version))
         payload = self._unpack(resp, body[0xc:])
