@@ -3,7 +3,7 @@
 #
 #	tcprelay.py - TCP connection relay for usbmuxd
 #
-# Original work Copyright (C) 2009	Hector Martin "marcan" <hector@marcansoft.com>
+# Original work Copyright (C) 2009  Hector Martin "marcan" <hector@marcansoft.com>
 # Modified work Copyright (C) 2019  phx <https://github.com/phx>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -19,13 +19,19 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-import usbmux, socketserver, select, sys
+import select, sys, usbmux
 from optparse import OptionParser
 
 if sys.version_info > (3, 0):
     python3 = True
 else:
     python3 = False
+
+if python3:
+    import socketserver
+else:
+    import SocketServer as socketserver
+
 
 class SocketRelay(object):
     def __init__(self, a, b, maxbuf=65535):
