@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #	usbmux.py - usbmux client library for Python
@@ -174,13 +174,19 @@ class PlistProtocol(BinaryProtocol):
             req = [self.TYPE_CONNECT, self.TYPE_LISTEN][req - 2]
         payload['MessageType'] = req
         payload['ProgName'] = 'tcprelay'
-        BinaryProtocol.sendpacket(self, self.TYPE_PLIST, tag, plistlib.writePlistToString(payload))
+        if python3:
+            BinaryProtocol.sendpacket(self, self.TYPE_PLIST, tag, plistlib.writePlistToBytes(payload))
+        else:
+            BinaryProtocol.sendpacket(self, self.TYPE_PLIST, tag, plistlib.writePlistToString(payload))
 
     def getpacket(self):
         resp, tag, payload = BinaryProtocol.getpacket(self)
         if resp != self.TYPE_PLIST:
             raise MuxError("Received non-plist type %d" % resp)
-        payload = plistlib.readPlistFromString(payload)
+        if python3:
+            payload = plistlib.loads(payload)
+        else:
+            payload = plistlib.readPlistFromString(payload)
         return payload['MessageType'], tag, payload
 
 
