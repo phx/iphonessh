@@ -27,7 +27,7 @@ You have a jailbroken iOS device.
 ## Run:
 ```
 git clone https://github.com/phx/pyusbmux.git
-cd iphonessh/python-client
+cd pyusbmux/python-client
 # In terminal tab/window #1:
 ./tcprelay.py -t 22:2222
 # In terminal tab/window #2:
