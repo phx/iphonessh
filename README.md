@@ -38,7 +38,7 @@ If you want to "install" this without having to run it in place, just clone the 
 
 ```
 git clone https://github.com/phx/pyusbmux.git
-sudo cp iphonessh/python-client/{tcprelay.py,usbmux.py} /usr/local/bin/
+sudo cp pyusbmux/python-client/{tcprelay.py,usbmux.py} /usr/local/bin/
 sudo mv /usr/local/bin/tcprelay.py /usr/local/bin/tcprelay
 ```
 This will allow you to run it with the command `tcprelay`.
